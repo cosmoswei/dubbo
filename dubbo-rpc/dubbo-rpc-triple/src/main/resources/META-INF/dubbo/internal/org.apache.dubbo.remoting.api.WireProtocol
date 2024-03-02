@@ -1,2 +1,2 @@
-tri=org.apache.dubbo.rpc.protocol.tri.TripleHttp2Protocol
+tri=org.apache.dubbo.rpc.protocol.tri.DelegateTripleWireProtocol
 grpc=org.apache.dubbo.rpc.protocol.tri.GrpcHttp2Protocol

@@ -17,6 +17,7 @@
 package org.apache.dubbo.remoting.transport.netty4;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.constants.CommonConstants;
 import org.apache.dubbo.remoting.ChannelHandler;
 import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.api.connection.AbstractConnectionClient;
@@ -29,7 +30,13 @@ public class NettyConnectionManager implements ConnectionManager {
 
     @Override
     public AbstractConnectionClient connect(URL url, ChannelHandler handler) {
+        String isQuicEnabled = url.getParameter(CommonConstants.QUIC_ENABLED_KEY);
+
         try {
+            if (Boolean.parseBoolean(isQuicEnabled)) {
+                return new NettyQuicConnectionClient(url, handler);
+            }
+
             return new NettyConnectionClient(url, handler);
         } catch (RemotingException e) {
             throw new RuntimeException(e);

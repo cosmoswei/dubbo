@@ -50,6 +50,7 @@ import org.apache.dubbo.rpc.protocol.AbstractInvoker;
 import org.apache.dubbo.rpc.protocol.tri.call.ClientCall;
 import org.apache.dubbo.rpc.protocol.tri.call.ObserverToClientCallListenerAdapter;
 import org.apache.dubbo.rpc.protocol.tri.call.TripleClientCall;
+import org.apache.dubbo.rpc.protocol.tri.call.TripleOverHttp3ClientCall;
 import org.apache.dubbo.rpc.protocol.tri.call.UnaryClientCallListener;
 import org.apache.dubbo.rpc.protocol.tri.compressor.Compressor;
 import org.apache.dubbo.rpc.protocol.tri.compressor.Identity;
@@ -155,8 +156,7 @@ public class TripleInvoker<T> extends AbstractInvoker<T> {
         }
         ExecutorService callbackExecutor =
                 isSync(methodDescriptor, invocation) ? new ThreadlessExecutor() : streamExecutor;
-        ClientCall call = new TripleClientCall(
-                connectionClient, callbackExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);
+        ClientCall call = createClientCall();
         AsyncRpcResult result;
         try {
             switch (methodDescriptor.getRpcType()) {
@@ -349,5 +349,20 @@ public class TripleInvoker<T> extends AbstractInvoker<T> {
                 destroyLock.unlock();
             }
         }
+    }
+
+    private ClientCall createClientCall() {
+        if (isNettyQuicConnectionClient()) {
+            return new TripleOverHttp3ClientCall(connectionClient);
+        } else {
+            return new TripleClientCall(
+                    connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);
+        }
+    }
+
+    private boolean isNettyQuicConnectionClient() {
+        return connectionClient.getClass()
+                .getName()
+                .equals("org.apache.dubbo.remoting.transport.netty4.NettyQuicConnectionClient");
     }
 }

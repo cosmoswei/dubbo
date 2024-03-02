@@ -96,6 +96,7 @@
     <byte-buddy_version>1.14.11</byte-buddy_version>
     <netty_version>3.2.10.Final</netty_version>
     <netty4_version>4.1.106.Final</netty4_version>
+    <netty4_incubator_codec_http3_version>0.0.25.Final</netty4_incubator_codec_http3_version>
     <httpclient_version>4.5.14</httpclient_version>
     <httpcore_version>4.4.16</httpcore_version>
     <fastjson_version>1.2.83</fastjson_version>
@@ -213,6 +214,11 @@
         <version>${netty4_version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.netty.incubator</groupId>
+        <artifactId>netty-incubator-codec-http3</artifactId>
+        <version>${netty4_incubator_codec_http3_version}</version>
       </dependency>
       <dependency>
         <groupId>io.micrometer</groupId>

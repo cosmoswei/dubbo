@@ -30,6 +30,7 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.incubator.codec.http3.DefaultHttp3Headers;
 import io.netty.util.AsciiString;
 
 public class RequestMetadata {
@@ -49,6 +50,28 @@ public class RequestMetadata {
     public Map<String, Object> attachments;
     public boolean convertNoLowerHeader;
     public boolean ignoreDefaultVersion;
+
+    public DefaultHttp3Headers toHttp3Headers() {
+        DefaultHttp3Headers header = new DefaultHttp3Headers();
+        header.scheme(scheme)
+                .authority(address)
+                .method(HttpMethod.POST.asciiName())
+                .path("/" + service + "/" + method.getMethodName())
+                .set(TripleHeaderEnum.CONTENT_TYPE_KEY.getHeader(), MediaType.APPLICATION_GRPC_PROTO.getName())
+                .set(HttpHeaderNames.TE, HttpHeaderValues.TRAILERS);
+        setIfNotNull(header, TripleHeaderEnum.TIMEOUT.getHeader(), timeout);
+        if (!ignoreDefaultVersion || !"1.0.0".equals(version)) {
+            setIfNotNull(header, TripleHeaderEnum.SERVICE_VERSION.getHeader(), version);
+        }
+        setIfNotNull(header, TripleHeaderEnum.SERVICE_GROUP.getHeader(), group);
+        setIfNotNull(header, TripleHeaderEnum.CONSUMER_APP_NAME_KEY.getHeader(), application);
+        setIfNotNull(header, TripleHeaderEnum.GRPC_ACCEPT_ENCODING.getHeader(), acceptEncoding);
+        if (!Identity.MESSAGE_ENCODING.equals(compressor.getMessageEncoding())) {
+            setIfNotNull(header, TripleHeaderEnum.GRPC_ENCODING.getHeader(), compressor.getMessageEncoding());
+        }
+        StreamUtils.putHeaders(header, attachments, convertNoLowerHeader);
+        return header;
+    }
 
     public DefaultHttp2Headers toHeaders() {
         DefaultHttp2Headers header = new DefaultHttp2Headers(false);
@@ -70,6 +93,13 @@ public class RequestMetadata {
         }
         StreamUtils.putHeaders(header, attachments, convertNoLowerHeader);
         return header;
+    }
+
+    private void setIfNotNull(DefaultHttp3Headers headers, CharSequence key, CharSequence value) {
+        if (value == null) {
+            return;
+        }
+        headers.set(key, value);
     }
 
     private void setIfNotNull(DefaultHttp2Headers headers, CharSequence key, CharSequence value) {

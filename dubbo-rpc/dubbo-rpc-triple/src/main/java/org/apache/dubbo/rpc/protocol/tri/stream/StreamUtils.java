@@ -38,6 +38,7 @@ import java.util.function.BiConsumer;
 
 import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.incubator.codec.http3.DefaultHttp3Headers;
 
 import static org.apache.dubbo.common.constants.LoggerCodeConstants.PROTOCOL_FAILED_PARSE;
 import static org.apache.dubbo.common.constants.LoggerCodeConstants.PROTOCOL_UNSUPPORTED;
@@ -78,6 +79,19 @@ public final class StreamUtils {
      */
     public static void putHeaders(
             DefaultHttp2Headers headers, Map<String, Object> attachments, boolean needConvertHeaderKey) {
+        putHeaders(attachments, needConvertHeaderKey, headers::set);
+    }
+
+    /**
+     * Parse and put attachments into headers.
+     *  same as {@link #putHeaders(DefaultHttp2Headers, Map, boolean)} but for http3
+     *
+     * @param headers              the headers
+     * @param attachments          the attachments
+     * @param needConvertHeaderKey whether need to convert the header key to lower-case
+     */
+    public static void putHeaders(
+            DefaultHttp3Headers headers, Map<String, Object> attachments, boolean needConvertHeaderKey) {
         putHeaders(attachments, needConvertHeaderKey, headers::set);
     }
 
