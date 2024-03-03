@@ -43,6 +43,11 @@
     </dependency>
     <dependency>
       <groupId>org.apache.dubbo</groupId>
+      <artifactId>dubbo-remoting-http3</artifactId>
+      <version>${project.parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.dubbo</groupId>
       <artifactId>dubbo-remoting-netty4</artifactId>
       <version>${project.parent.version}</version>
       <scope>test</scope>
@@ -54,6 +59,11 @@
     <dependency>
       <groupId>io.netty.incubator</groupId>
       <artifactId>netty-incubator-codec-http3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+      <version>1.75</version>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf</groupId>

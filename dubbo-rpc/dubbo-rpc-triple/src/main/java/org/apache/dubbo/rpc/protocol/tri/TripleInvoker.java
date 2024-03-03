@@ -353,7 +353,7 @@ public class TripleInvoker<T> extends AbstractInvoker<T> {
 
     private ClientCall createClientCall() {
         if (isNettyQuicConnectionClient()) {
-            return new TripleOverHttp3ClientCall(connectionClient);
+            return new TripleOverHttp3ClientCall(connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);
         } else {
             return new TripleClientCall(
                     connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);

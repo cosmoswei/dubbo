@@ -24,6 +24,11 @@
       <artifactId>dubbo-remoting-http12</artifactId>
       <version>${revision}</version>
     </dependency>
+
+    <dependency>
+      <groupId>io.netty.incubator</groupId>
+      <artifactId>netty-incubator-codec-http3</artifactId>
+    </dependency>
   </dependencies>
 
 </project>

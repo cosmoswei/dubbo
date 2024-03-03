@@ -17,6 +17,7 @@
 package org.apache.dubbo.remoting.transport.netty4;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.constants.CommonConstants;
 import org.apache.dubbo.remoting.ChannelHandler;
 import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.api.connection.AbstractConnectionClient;
@@ -31,7 +32,15 @@ public class NettyPortUnificationTransporter implements PortUnificationTransport
 
     @Override
     public AbstractPortUnificationServer bind(URL url, ChannelHandler handler) throws RemotingException {
-        return new NettyPortUnificationServer(url, handler);
+        NettyPortUnificationServer mainServer = new NettyPortUnificationServer(url, handler);
+
+        boolean isQuicEnabled = url.getParameter(CommonConstants.QUIC_ENABLED_KEY, false);
+
+        if (isQuicEnabled) {
+            new NettyQuicPortUnificationServer(url, handler);
+        }
+
+        return mainServer;
     }
 
     @Override
