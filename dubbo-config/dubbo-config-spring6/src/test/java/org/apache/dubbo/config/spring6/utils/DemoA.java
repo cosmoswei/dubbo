@@ -16,9 +16,8 @@
  */
 package org.apache.dubbo.config.spring6.utils;
 
-public interface DemoService {
+import java.io.Serializable;
 
-    HelloResponse sayHello(HelloRequest request);
-
-    String sayHelloForSerializable(java.io.Serializable name);
+public class DemoA implements Serializable {
+    private DemoB b;
 }

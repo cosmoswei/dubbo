@@ -16,9 +16,6 @@
  */
 package org.apache.dubbo.config.spring6.utils;
 
-public interface DemoService {
-
-    HelloResponse sayHello(HelloRequest request);
-
-    String sayHelloForSerializable(java.io.Serializable name);
+public interface CircularDependencyDemoService {
+    String sayHello(DemoA a);
 }
