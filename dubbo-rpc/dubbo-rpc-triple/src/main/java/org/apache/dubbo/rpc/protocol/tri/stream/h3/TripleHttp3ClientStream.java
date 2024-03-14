@@ -1,12 +1,20 @@
-package org.apache.dubbo.rpc.protocol.tri.stream;
+package org.apache.dubbo.rpc.protocol.tri.stream.h3;
 
 import org.apache.dubbo.rpc.TriRpcStatus;
+import org.apache.dubbo.rpc.model.FrameworkModel;
+import org.apache.dubbo.rpc.protocol.tri.frame.Deframer;
+import org.apache.dubbo.rpc.protocol.tri.stream.AbstractStream;
+import org.apache.dubbo.rpc.protocol.tri.stream.ClientStream;
+import org.apache.dubbo.rpc.protocol.tri.transport.TripleWriteQueue;
+import org.apache.dubbo.rpc.protocol.tri.transport.h3.Http3TransportListener;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Executor;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.incubator.codec.http3.DefaultHttp3DataFrame;
 import io.netty.incubator.codec.http3.DefaultHttp3HeadersFrame;
 import io.netty.incubator.codec.http3.Http3;
@@ -20,13 +28,36 @@ import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
 
-public class TripleOverHttp3ClientStream {
+public class TripleHttp3ClientStream extends AbstractStream implements ClientStream {
+
+    public final ClientStream.Listener listener;
+    private final TripleWriteQueue writeQueue;
+    private Deframer deframer;
+    private final TripleHttp3StreamChannelFuture tripleHttp3StreamChannelFuture;
+    private boolean halfClosed;
+    private boolean rst;
+
+    private boolean isReturnTriException = false;
+
     private final QuicChannel parentChannel;
     private final QuicStreamChannel streamChannel;
 
-    public TripleOverHttp3ClientStream(QuicChannel parentChannel) {
+    public TripleHttp3ClientStream(
+            FrameworkModel frameworkModel,
+            Executor executor,
+            ClientStream.Listener listener,
+            QuicChannel parentChannel,
+            TripleWriteQueue writeQueue) {
+        super(executor, frameworkModel);
+        this.listener = listener;
+        this.writeQueue = writeQueue;
         this.parentChannel = parentChannel;
         this.streamChannel = initHttp3StreamChannel();
+        this.tripleHttp3StreamChannelFuture = initTripleHttp3StreamChannelFuture();
+    }
+
+    private TripleHttp3StreamChannelFuture initTripleHttp3StreamChannelFuture() {
+        return null;
     }
 
     private QuicStreamChannel initHttp3StreamChannel() {
@@ -56,6 +87,7 @@ public class TripleOverHttp3ClientStream {
         }
     }
 
+    // 发送请求，异步返回
     public Future<?> sendMessage(byte[] message, int compressFlag, boolean eos) {
         ByteBuf buf = streamChannel.alloc()
                 .buffer();
@@ -80,6 +112,11 @@ public class TripleOverHttp3ClientStream {
         return streamChannel.writeAndFlush(frame);
     }
 
+    @Override
+    public Future<?> sendHeader(Http2Headers headers) {
+        return null;
+    }
+
     public Future<?> cancelByLocal(TriRpcStatus status) {
         return null;
     }
@@ -90,5 +127,23 @@ public class TripleOverHttp3ClientStream {
 
     public void request(int n) {
 
+    }
+
+    class Http3ClientTransportListener implements Http3TransportListener {
+
+        @Override
+        public void onHeader(Http3Headers headers, boolean endStream) {
+
+        }
+
+        @Override
+        public void onData(ByteBuf data, boolean endStream) {
+
+        }
+
+        @Override
+        public void cancelByRemote(long errorCode) {
+
+        }
     }
 }

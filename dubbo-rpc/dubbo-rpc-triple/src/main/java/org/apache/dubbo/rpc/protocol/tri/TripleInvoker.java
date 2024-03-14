@@ -50,7 +50,7 @@ import org.apache.dubbo.rpc.protocol.AbstractInvoker;
 import org.apache.dubbo.rpc.protocol.tri.call.ClientCall;
 import org.apache.dubbo.rpc.protocol.tri.call.ObserverToClientCallListenerAdapter;
 import org.apache.dubbo.rpc.protocol.tri.call.TripleClientCall;
-import org.apache.dubbo.rpc.protocol.tri.call.TripleOverHttp3ClientCall;
+import org.apache.dubbo.rpc.protocol.tri.call.TripleHttp3ClientCall;
 import org.apache.dubbo.rpc.protocol.tri.call.UnaryClientCallListener;
 import org.apache.dubbo.rpc.protocol.tri.compressor.Compressor;
 import org.apache.dubbo.rpc.protocol.tri.compressor.Identity;
@@ -353,7 +353,7 @@ public class TripleInvoker<T> extends AbstractInvoker<T> {
 
     private ClientCall createClientCall() {
         if (isNettyQuicConnectionClient()) {
-            return new TripleOverHttp3ClientCall(connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);
+            return new TripleHttp3ClientCall(connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);
         } else {
             return new TripleClientCall(
                     connectionClient, streamExecutor, getUrl().getOrDefaultFrameworkModel(), writeQueue);

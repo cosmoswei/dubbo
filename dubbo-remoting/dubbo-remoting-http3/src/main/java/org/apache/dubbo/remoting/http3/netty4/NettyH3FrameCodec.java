@@ -1,8 +1,5 @@
 package org.apache.dubbo.remoting.http3.netty4;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
-
 import org.apache.dubbo.remoting.http12.HttpHeaders;
 import org.apache.dubbo.remoting.http12.h2.Http2Header;
 import org.apache.dubbo.remoting.http12.h2.Http2InputMessage;
@@ -11,8 +8,11 @@ import org.apache.dubbo.remoting.http12.h2.Http2MetadataFrame;
 
 import java.util.Map;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.incubator.codec.http3.Http3DataFrame;
 import io.netty.incubator.codec.http3.Http3Headers;
 import io.netty.incubator.codec.http3.Http3HeadersFrame;
@@ -29,6 +29,20 @@ public class NettyH3FrameCodec extends ChannelDuplexHandler {
             super.channelRead(ctx, http2InputMessage);
         } else {
             super.channelRead(ctx, msg);
+        }
+    }
+
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        if (msg instanceof Http3HeadersFrame) {
+            Http3HeadersFrame http2Header = (Http3HeadersFrame) msg;
+            Http2Header http2HeadersFrame = onHttp3HeadersFrame(http2Header);
+            super.write(ctx, http2HeadersFrame, promise);
+        } else if (msg instanceof Http3DataFrame) {
+            Http2InputMessage http2InputMessage = onHttp3DataFrame((Http3DataFrame) msg);
+            super.write(ctx, http2InputMessage, promise);
+        } else {
+            super.write(ctx, msg, promise);
         }
     }
 
