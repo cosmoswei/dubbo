@@ -24,12 +24,18 @@ import static org.apache.dubbo.common.constants.LoggerCodeConstants.PROTOCOL_STR
 public class TripleHttp3ClientCall implements ClientCall, ClientStream.Listener {
     private static final ErrorTypeAwareLogger LOGGER =
             LoggerFactory.getErrorTypeAwareLogger(TripleHttp3ClientCall.class);
+    // 连接客户端
     private final AbstractConnectionClient connectionClient;
+    // 业务线程池
     private final Executor executor;
     private final FrameworkModel frameworkModel;
+    // 写入队列
     private final TripleWriteQueue writeQueue;
+    // 请求元数据
     private RequestMetadata requestMetadata;
+    // HTTP3 的流
     private TripleHttp3ClientStream stream;
+    // 连接状态监听器
     private ClientCall.Listener listener;
     private boolean canceled;
     private boolean autoRequest = true;
@@ -110,7 +116,6 @@ public class TripleHttp3ClientCall implements ClientCall, ClientStream.Listener 
 
     @Override
     public void setCompression(String compression) {
-
     }
 
     @Override
@@ -121,7 +126,8 @@ public class TripleHttp3ClientCall implements ClientCall, ClientStream.Listener 
     @Override
     // 获取返回结果，写入异步结果，返回；
     // 需要在org.apache.dubbo.rpc.protocol.tri.stream.h3.TripleHttp3ClientStream.Http3ClientTransportListener
-    // 调用
+    // 调用,异步将结果写入Future（“ClientCall.Listener callListener = new UnaryClientCallListener(future);”）
+    // 所以在请求的头里面指定
     public void onMessage(byte[] message, boolean isReturnTriException) {
         if (done) {
             LOGGER.warn(PROTOCOL_STREAM_LISTENER, "", "",

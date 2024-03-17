@@ -119,9 +119,11 @@ public class TripleClientStream extends AbstractStream implements ClientStream {
             public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
                 Channel channel = ctx.channel();
                 channel.pipeline().addLast(new TripleCommandOutBoundHandler());
+                // 这里是响应回调器
                 channel.pipeline().addLast(new TripleHttp2ClientResponseHandler(createTransportListener()));
             }
         });
+        // 这是写请求的队列工具数据结构
         CreateStreamQueueCommand cmd = CreateStreamQueueCommand.create(bootstrap, streamChannelFuture);
         this.writeQueue.enqueue(cmd);
         return streamChannelFuture;

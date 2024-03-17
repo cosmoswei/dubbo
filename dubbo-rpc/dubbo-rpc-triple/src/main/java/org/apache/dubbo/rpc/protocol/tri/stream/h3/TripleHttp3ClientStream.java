@@ -1,5 +1,6 @@
 package org.apache.dubbo.rpc.protocol.tri.stream.h3;
 
+import org.apache.dubbo.common.constants.CommonConstants;
 import org.apache.dubbo.common.logger.ErrorTypeAwareLogger;
 import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.common.utils.JsonUtils;
@@ -12,8 +13,11 @@ import org.apache.dubbo.rpc.protocol.tri.TripleHeaderEnum;
 import org.apache.dubbo.rpc.protocol.tri.command.h3.QuicCancelQueueCommand;
 import org.apache.dubbo.rpc.protocol.tri.command.h3.QuicCreateStreamQueueCommand;
 import org.apache.dubbo.rpc.protocol.tri.command.h3.QuicDataQueueCommand;
+import org.apache.dubbo.rpc.protocol.tri.command.h3.QuicHeaderQueueCommand;
 import org.apache.dubbo.rpc.protocol.tri.compressor.DeCompressor;
+import org.apache.dubbo.rpc.protocol.tri.compressor.Identity;
 import org.apache.dubbo.rpc.protocol.tri.frame.Deframer;
+import org.apache.dubbo.rpc.protocol.tri.frame.TriDecoder;
 import org.apache.dubbo.rpc.protocol.tri.stream.AbstractStream;
 import org.apache.dubbo.rpc.protocol.tri.stream.ClientStream;
 import org.apache.dubbo.rpc.protocol.tri.stream.StreamUtils;
@@ -38,21 +42,15 @@ import com.google.rpc.ErrorInfo;
 import com.google.rpc.Status;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Headers;
-import io.netty.incubator.codec.http3.DefaultHttp3DataFrame;
-import io.netty.incubator.codec.http3.DefaultHttp3HeadersFrame;
 import io.netty.incubator.codec.http3.Http3;
-import io.netty.incubator.codec.http3.Http3DataFrame;
 import io.netty.incubator.codec.http3.Http3ErrorCode;
 import io.netty.incubator.codec.http3.Http3Headers;
-import io.netty.incubator.codec.http3.Http3HeadersFrame;
-import io.netty.incubator.codec.http3.Http3RequestStreamInboundHandler;
 import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
-import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Future;
 
@@ -65,17 +63,22 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
     private static final ErrorTypeAwareLogger LOGGER =
             LoggerFactory.getErrorTypeAwareLogger(TripleHttp3ClientStream.class);
 
+    // 这个是流状态的监听器，区别与流响应的监听器，对应的是 ObserverToClientCallListenerAdapter
     public final ClientStream.Listener listener;
+    // Triple 协议的写入队列，不能直接ChannelRead.write()
     private final TripleWriteQueue writeQueue;
+    // 解码帧
     private Deframer deframer;
+    // 用于异步回调的Future
     private final TripleHttp3StreamChannelFuture http3StreamChannelFuture;
+    // 半关闭标志
     private boolean halfClosed;
+    // 重置标志
     private boolean rst;
-
+    // 返回异常标志
     private boolean isReturnTriException = false;
-
+    // 父 parentChannel
     private final QuicChannel parentChannel;
-    private final QuicStreamChannel streamChannel;
 
     public TripleHttp3ClientStream(
             FrameworkModel frameworkModel,
@@ -87,7 +90,6 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
         this.listener = listener;
         this.writeQueue = writeQueue;
         this.parentChannel = parentChannel;
-        this.streamChannel = initHttp3StreamChannel();
         this.http3StreamChannelFuture = initTripleHttp3StreamChannelFuture();
     }
 
@@ -116,42 +118,8 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
         return new Http3ClientTransportListener();
     }
 
-    private QuicStreamChannel initHttp3StreamChannel() {
-        try {
-            return Http3.newRequestStream(parentChannel, new Http3RequestStreamInboundHandler() {
-                        @Override
-                        protected void channelRead(ChannelHandlerContext ctx, Http3HeadersFrame frame) {
-                            ReferenceCountUtil.release(frame);
-                        }
-
-                        @Override
-                        protected void channelRead(ChannelHandlerContext ctx, Http3DataFrame frame) {
-                            System.err.print(frame.content()
-                                    .toString(CharsetUtil.US_ASCII));
-                            ReferenceCountUtil.release(frame);
-                        }
-
-                        @Override
-                        protected void channelInputClosed(ChannelHandlerContext ctx) {
-                            ctx.close();
-                        }
-                    })
-                    .sync()
-                    .getNow();
-        } catch (InterruptedException e) {
-            throw new RuntimeException("Failed to create HTTP/3 stream", e);
-        }
-    }
-
     // 发送请求，异步返回
     public Future<?> sendMessage(byte[] message, int compressFlag, boolean eos) {
-        ByteBuf buf = streamChannel.alloc()
-                .buffer();
-        buf.writeByte(compressFlag);
-        buf.writeInt(message.length);
-        buf.writeBytes(message);
-        ChannelPromise channelPromise = streamChannel.newPromise();
-        streamChannel.write(new DefaultHttp3DataFrame(buf), channelPromise);
         final QuicDataQueueCommand cmd = QuicDataQueueCommand.create(http3StreamChannelFuture, message, false,
                 compressFlag);
 
@@ -176,11 +144,30 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
     }
 
     public Future<?> sendHeader(Http3Headers headers) {
-        DefaultHttp3HeadersFrame frame = new DefaultHttp3HeadersFrame();
-        frame.headers()
-                .setAll(headers);
+        if (this.writeQueue == null) {
+            // already processed at createStream()
+            return parentChannel.newFailedFuture(new IllegalStateException("Stream already closed"));
+        }
+        ChannelFuture checkResult = preCheck();
+        if (!checkResult.isSuccess()) {
+            return checkResult;
+        }
+        final QuicHeaderQueueCommand headerCmd = QuicHeaderQueueCommand.createHeaders(http3StreamChannelFuture,
+                headers);
+        return writeQueue.enqueueFuture(headerCmd, parentChannel.eventLoop())
+                .addListener(future -> {
+                    if (!future.isSuccess()) {
+                        transportException(future.cause());
+                    }
+                });
+    }
 
-        return streamChannel.writeAndFlush(frame);
+    private ChannelFuture preCheck() {
+        if (rst) {
+            return http3StreamChannelFuture.getNow()
+                    .newFailedFuture(new IOException("stream channel has reset"));
+        }
+        return parentChannel.newSucceededFuture();
     }
 
     @Override
@@ -219,11 +206,128 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
                             rst = true;
                         }
                     }
-                    // todo onTrailersReceived(headers);
+                    onTrailersReceived(headers);
                 } else {
-                    // todo onHeaderReceived(headers);
+                    onHeaderReceived(headers);
                 }
             });
+        }
+
+        // 需要重写
+        void onTrailersReceived(Http3Headers trailers) {
+            if (transportError == null && !headerReceived) {
+                transportError = validateHeaderStatus(trailers);
+            }
+            if (transportError != null) {
+                transportError = transportError.appendDescription("trailers: " + trailers);
+            } else {
+                this.trailers = trailers;
+                TriRpcStatus status = statusFromTrailers(trailers);
+                if (deframer == null) {
+                    finishProcess(status, trailers, false);
+                }
+                if (deframer != null) {
+                    deframer.close();
+                }
+            }
+        }
+
+        void onHeaderReceived(Http3Headers headers) {
+            if (transportError != null) {
+                transportError.appendDescription("headers:" + headers);
+                return;
+            }
+            if (headerReceived) {
+                transportError = TriRpcStatus.INTERNAL.withDescription("Received headers twice");
+                return;
+            }
+            Integer httpStatus = headers.status() == null ? null : Integer.parseInt(headers.status()
+                    .toString());
+
+            if (httpStatus != null && Integer.parseInt(httpStatus.toString()) > 100 && httpStatus < 200) {
+                // ignored
+                return;
+            }
+            headerReceived = true;
+
+            transportError = validateHeaderStatus(headers);
+
+            // todo support full payload compressor
+            CharSequence messageEncoding = headers.get(TripleHeaderEnum.GRPC_ENCODING.getHeader());
+            CharSequence triExceptionCode = headers.get(TripleHeaderEnum.TRI_EXCEPTION_CODE.getHeader());
+            if (triExceptionCode != null) {
+                Integer triExceptionCodeNum = Integer.parseInt(triExceptionCode.toString());
+                if (!(triExceptionCodeNum.equals(CommonConstants.TRI_EXCEPTION_CODE_NOT_EXISTS))) {
+                    isReturnTriException = true;
+                }
+            }
+            if (null != messageEncoding) {
+                String compressorStr = messageEncoding.toString();
+                if (!Identity.IDENTITY.getMessageEncoding()
+                        .equals(compressorStr)) {
+                    DeCompressor compressor = DeCompressor.getCompressor(frameworkModel, compressorStr);
+                    if (null == compressor) {
+                        throw TriRpcStatus.UNIMPLEMENTED.withDescription(String.format(
+                                        "Grpc-encoding '%s' is not " + "supported", compressorStr))
+                                .asException();
+                    } else {
+                        decompressor = compressor;
+                    }
+                }
+            }
+            TriDecoder.Listener listener = new TriDecoder.Listener() {
+                @Override
+                public void onRawMessage(byte[] data) {
+                    TripleHttp3ClientStream.this.listener.onMessage(data, isReturnTriException);
+                }
+
+                public void close() {
+                    finishProcess(statusFromTrailers(trailers), trailers, isReturnTriException);
+                }
+            };
+            deframer = new TriDecoder(decompressor, listener);
+            TripleHttp3ClientStream.this.listener.onStart();
+        }
+
+        // todo 需要重写
+        private TriRpcStatus validateHeaderStatus(Http3Headers headers) {
+            Integer httpStatus = headers.status() == null ? null : Integer.parseInt(headers.status()
+                    .toString());
+            if (httpStatus == null) {
+                return TriRpcStatus.INTERNAL.withDescription("Missing HTTP status code");
+            }
+            final CharSequence contentType = headers.get(TripleHeaderEnum.CONTENT_TYPE_KEY.getHeader());
+            if (contentType == null || !contentType.toString()
+                    .startsWith(TripleHeaderEnum.APPLICATION_GRPC.getHeader())) {
+                return TriRpcStatus.fromCode(TriRpcStatus.httpStatusToGrpcCode(httpStatus))
+                        .withDescription("invalid content-type: " + contentType);
+            }
+            return null;
+        }
+
+        private TriRpcStatus statusFromTrailers(Http3Headers trailers) {
+            final Integer intStatus = trailers.getInt(TripleHeaderEnum.STATUS_KEY.getHeader());
+            TriRpcStatus status = intStatus == null ? null : TriRpcStatus.fromCode(intStatus);
+            if (status != null) {
+                final CharSequence message = trailers.get(TripleHeaderEnum.MESSAGE_KEY.getHeader());
+                if (message != null) {
+                    final String description = TriRpcStatus.decodeMessage(message.toString());
+                    status = status.withDescription(description);
+                }
+                return status;
+            }
+            // No status; something is broken. Try to provide a rational error.
+            if (headerReceived) {
+                return TriRpcStatus.UNKNOWN.withDescription("missing GRPC status in response");
+            }
+            Integer httpStatus = trailers.status() == null ? null : Integer.parseInt(trailers.status()
+                    .toString());
+            if (httpStatus != null) {
+                status = TriRpcStatus.fromCode(TriRpcStatus.httpStatusToGrpcCode(httpStatus));
+            } else {
+                status = TriRpcStatus.INTERNAL.withDescription("missing HTTP status code");
+            }
+            return status.appendDescription("missing GRPC status, inferred error from HTTP status code");
         }
 
         @Override
@@ -255,6 +359,7 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
             deframer.deframe(data);
         }
 
+        // todo 需要重写
         void handleH3TransportError(TriRpcStatus status) {
             writeQueue.enqueue(QuicCancelQueueCommand.createCommand(http3StreamChannelFuture,
                     Http3ErrorCode.H3_REQUEST_CANCELLED));
@@ -262,6 +367,7 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
             finishProcess(status, null, false);
         }
 
+        // todo 需要重写
         void finishProcess(TriRpcStatus status, Http3Headers trailers, boolean isReturnTriException) {
             final Map<String, String> reserved = filterReservedHeaders(trailers);
             final Map<String, Object> attachments = headersToMap(trailers,
