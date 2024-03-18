@@ -16,10 +16,13 @@
  */
 package org.apache.dubbo.rpc.protocol.tri.h12.http3;
 
+import io.netty.incubator.codec.quic.QuicStreamChannel;
+
 import org.apache.dubbo.remoting.http12.HttpHeaders;
 import org.apache.dubbo.remoting.http12.HttpMetadata;
 import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
 import org.apache.dubbo.remoting.http12.h2.Http2ServerChannelObserver;
+import org.apache.dubbo.remoting.http3.netty4.Http3ServerChannelObserver;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 import org.apache.dubbo.rpc.protocol.tri.ServerStreamObserver;
 import org.apache.dubbo.rpc.protocol.tri.TripleProtocol;
@@ -30,15 +33,15 @@ import org.apache.dubbo.rpc.protocol.tri.stream.StreamUtils;
 
 import java.util.Map;
 
-public class Http3ServerStreamObserver extends Http2ServerChannelObserver
+public class Http3ServerStreamObserver extends Http3ServerChannelObserver
         implements ServerStreamObserver<Object>, AttachmentHolder {
 
     private final FrameworkModel frameworkModel;
 
     private Map<String, Object> attachments;
 
-    public Http3ServerStreamObserver(FrameworkModel frameworkModel, H2StreamChannel h2StreamChannel) {
-        super(h2StreamChannel);
+    public Http3ServerStreamObserver(FrameworkModel frameworkModel, QuicStreamChannel quicStreamChannel) {
+        super(quicStreamChannel);
         this.frameworkModel = frameworkModel;
     }
 

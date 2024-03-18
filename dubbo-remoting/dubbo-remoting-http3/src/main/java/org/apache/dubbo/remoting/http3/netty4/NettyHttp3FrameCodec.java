@@ -17,7 +17,7 @@ import io.netty.incubator.codec.http3.Http3DataFrame;
 import io.netty.incubator.codec.http3.Http3Headers;
 import io.netty.incubator.codec.http3.Http3HeadersFrame;
 
-public class NettyH3FrameCodec extends ChannelDuplexHandler {
+public class NettyHttp3FrameCodec extends ChannelDuplexHandler {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {

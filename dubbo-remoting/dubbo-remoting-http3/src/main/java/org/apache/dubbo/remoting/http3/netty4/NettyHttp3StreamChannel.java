@@ -18,11 +18,11 @@ import io.netty.incubator.codec.http3.DefaultHttp3DataFrame;
 import io.netty.incubator.codec.http3.DefaultHttp3HeadersFrame;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 
-public class NettyH3StreamChannel implements H2StreamChannel {
+public class NettyHttp3StreamChannel implements H2StreamChannel {
 
     private final QuicStreamChannel http2StreamChannel;
 
-    public NettyH3StreamChannel(QuicStreamChannel http2StreamChannel) {
+    public NettyHttp3StreamChannel(QuicStreamChannel http2StreamChannel) {
         this.http2StreamChannel = http2StreamChannel;
     }
 

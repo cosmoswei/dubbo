@@ -7,8 +7,8 @@ import org.apache.dubbo.remoting.api.pu.ChannelHandlerPretender;
 import org.apache.dubbo.remoting.api.pu.ChannelOperator;
 import org.apache.dubbo.remoting.api.ssl.ContextOperator;
 import org.apache.dubbo.remoting.http12.netty4.HttpWriteQueueHandler;
-import org.apache.dubbo.remoting.http3.netty4.NettyH3FrameCodec;
-import org.apache.dubbo.remoting.http3.netty4.NettyH3ProtocolSelectorHandler;
+import org.apache.dubbo.remoting.http3.netty4.NettyHttp3FrameCodec;
+import org.apache.dubbo.remoting.http3.netty4.NettyHttp3ProtocolSelectorHandler;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 import org.apache.dubbo.rpc.model.ScopeModelAware;
 import org.apache.dubbo.rpc.protocol.tri.h12.http2.GenericHttp2ServerTransportListenerFactory;
@@ -27,6 +27,8 @@ import io.netty.incubator.codec.quic.InsecureQuicTokenHandler;
 import io.netty.incubator.codec.quic.QuicSslContext;
 import io.netty.incubator.codec.quic.QuicSslContextBuilder;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
+
+import org.apache.dubbo.rpc.protocol.tri.h12.http3.GenericHttp3ServerTransportListenerFactory;
 
 public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeModelAware {
 
@@ -74,12 +76,12 @@ public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeMo
                         @Override
                         protected void initChannel(QuicStreamChannel ch) {
                             ch.pipeline()
-                                    .addLast(new NettyH3FrameCodec());
+                                    .addLast(new NettyHttp3FrameCodec());
                             ch.pipeline()
                                     .addLast(new HttpWriteQueueHandler());
                             ch.pipeline()
-                                    .addLast(new NettyH3ProtocolSelectorHandler(url, frameworkModel,
-                                            GenericHttp2ServerTransportListenerFactory.INSTANCE));
+                                    .addLast(new NettyHttp3ProtocolSelectorHandler(url, frameworkModel,
+                                            GenericHttp3ServerTransportListenerFactory.INSTANCE));
                         }
                     }))
                     .build();

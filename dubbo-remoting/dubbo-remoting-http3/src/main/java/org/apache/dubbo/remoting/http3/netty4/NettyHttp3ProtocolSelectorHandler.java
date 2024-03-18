@@ -20,18 +20,18 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 
-public class NettyH3ProtocolSelectorHandler extends SimpleChannelInboundHandler<HttpMetadata> {
+public class NettyHttp3ProtocolSelectorHandler extends SimpleChannelInboundHandler<HttpMetadata> {
 
     private final URL url;
 
     private final FrameworkModel frameworkModel;
 
-    private final Http2ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory;
+    private final Http3ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory;
 
-    public NettyH3ProtocolSelectorHandler(
+    public NettyHttp3ProtocolSelectorHandler(
             URL url,
             FrameworkModel frameworkModel,
-            Http2ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory) {
+            Http3ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory) {
         this.url = url;
         this.frameworkModel = frameworkModel;
         this.defaultHttp2ServerTransportListenerFactory = defaultHttp2ServerTransportListenerFactory;
@@ -41,13 +41,13 @@ public class NettyH3ProtocolSelectorHandler extends SimpleChannelInboundHandler<
     protected void channelRead0(ChannelHandlerContext ctx, HttpMetadata metadata) {
         HttpHeaders headers = metadata.headers();
         String contentType = headers.getFirst(HttpHeaderNames.CONTENT_TYPE.getName());
-        Http2ServerTransportListenerFactory factory = determineHttp2ServerTransportListenerFactory(contentType);
+        Http3ServerTransportListenerFactory factory = determineHttp3ServerTransportListenerFactory(contentType);
         if (factory == null) {
             throw new UnsupportedMediaTypeException(contentType);
         }
         QuicStreamChannel quicChannel = (QuicStreamChannel) ctx.channel();
 
-        H2StreamChannel h2StreamChannel = new NettyH3StreamChannel(quicChannel);
+        H2StreamChannel h2StreamChannel = new NettyHttp3StreamChannel(quicChannel);
         HttpWriteQueueHandler writeQueueHandler = quicChannel.pipeline()
                 .get(HttpWriteQueueHandler.class);
 
@@ -57,17 +57,17 @@ public class NettyH3ProtocolSelectorHandler extends SimpleChannelInboundHandler<
         }
 
         ChannelPipeline pipeline = ctx.pipeline();
-        pipeline.addLast(new NettyHttp2FrameHandler(h2StreamChannel, factory.newInstance(h2StreamChannel, url,
+        pipeline.addLast(new NettyHttp3FrameHandler(quicChannel, factory.newInstance(quicChannel, url,
                 frameworkModel)));
         pipeline.remove(this);
         ctx.fireChannelRead(metadata);
     }
 
-    private Http2ServerTransportListenerFactory determineHttp2ServerTransportListenerFactory(String contentType) {
-        Set<Http2ServerTransportListenerFactory> http2ServerTransportListenerFactories =
-                frameworkModel.getExtensionLoader(Http2ServerTransportListenerFactory.class)
+    private Http3ServerTransportListenerFactory determineHttp3ServerTransportListenerFactory(String contentType) {
+        Set<Http3ServerTransportListenerFactory> http3ServerTransportListenerFactories =
+                frameworkModel.getExtensionLoader(Http3ServerTransportListenerFactory.class)
                 .getSupportedExtensionInstances();
-        for (Http2ServerTransportListenerFactory factory : http2ServerTransportListenerFactories) {
+        for (Http3ServerTransportListenerFactory factory : http3ServerTransportListenerFactories) {
             if (factory.supportContentType(contentType)) {
                 return factory;
             }
