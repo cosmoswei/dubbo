@@ -26,12 +26,12 @@ public class NettyHttp3ProtocolSelectorHandler extends SimpleChannelInboundHandl
 
     private final FrameworkModel frameworkModel;
 
-    private final Http3ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory;
+    private final Http2ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory;
 
     public NettyHttp3ProtocolSelectorHandler(
             URL url,
             FrameworkModel frameworkModel,
-            Http3ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory) {
+            Http2ServerTransportListenerFactory defaultHttp2ServerTransportListenerFactory) {
         this.url = url;
         this.frameworkModel = frameworkModel;
         this.defaultHttp2ServerTransportListenerFactory = defaultHttp2ServerTransportListenerFactory;
@@ -41,7 +41,7 @@ public class NettyHttp3ProtocolSelectorHandler extends SimpleChannelInboundHandl
     protected void channelRead0(ChannelHandlerContext ctx, HttpMetadata metadata) {
         HttpHeaders headers = metadata.headers();
         String contentType = headers.getFirst(HttpHeaderNames.CONTENT_TYPE.getName());
-        Http3ServerTransportListenerFactory factory = determineHttp3ServerTransportListenerFactory(contentType);
+        Http2ServerTransportListenerFactory factory = determineHttp3ServerTransportListenerFactory(contentType);
         if (factory == null) {
             throw new UnsupportedMediaTypeException(contentType);
         }
@@ -57,17 +57,17 @@ public class NettyHttp3ProtocolSelectorHandler extends SimpleChannelInboundHandl
         }
 
         ChannelPipeline pipeline = ctx.pipeline();
-        pipeline.addLast(new NettyHttp3FrameHandler(quicChannel, factory.newInstance(quicChannel, url,
+        pipeline.addLast(new NettyHttp2FrameHandler(h2StreamChannel, factory.newInstance(h2StreamChannel, url,
                 frameworkModel)));
         pipeline.remove(this);
         ctx.fireChannelRead(metadata);
     }
 
-    private Http3ServerTransportListenerFactory determineHttp3ServerTransportListenerFactory(String contentType) {
-        Set<Http3ServerTransportListenerFactory> http3ServerTransportListenerFactories =
-                frameworkModel.getExtensionLoader(Http3ServerTransportListenerFactory.class)
+    private Http2ServerTransportListenerFactory determineHttp3ServerTransportListenerFactory(String contentType) {
+        Set<Http2ServerTransportListenerFactory> http3ServerTransportListenerFactories =
+                frameworkModel.getExtensionLoader(Http2ServerTransportListenerFactory.class)
                 .getSupportedExtensionInstances();
-        for (Http3ServerTransportListenerFactory factory : http3ServerTransportListenerFactories) {
+        for (Http2ServerTransportListenerFactory factory : http3ServerTransportListenerFactories) {
             if (factory.supportContentType(contentType)) {
                 return factory;
             }
