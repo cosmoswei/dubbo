@@ -16,12 +16,34 @@
  */
 package org.apache.dubbo.remoting.http3.netty4;
 
-import io.netty.incubator.codec.http3.Http3DataFrame;
-import io.netty.incubator.codec.http3.Http3HeadersFrame;
+import java.io.OutputStream;
 
-public interface HttpTransportListener<HEADER extends Http3HeadersFrame, MESSAGE extends Http3DataFrame> {
+public class Http3OutputMessageFrame implements Http3OutputMessage {
 
-    void onMetadata(HEADER metadata);
+    private final OutputStream body;
 
-    void onData(MESSAGE message);
+    private final boolean endStream;
+
+    public Http3OutputMessageFrame(OutputStream body) {
+        this(body, false);
+    }
+
+    public Http3OutputMessageFrame(boolean endStream) {
+        this(null, endStream);
+    }
+
+    public Http3OutputMessageFrame(OutputStream body, boolean endStream) {
+        this.body = body;
+        this.endStream = endStream;
+    }
+
+    @Override
+    public OutputStream getBody() {
+        return body;
+    }
+
+    @Override
+    public boolean isEndStream() {
+        return endStream;
+    }
 }

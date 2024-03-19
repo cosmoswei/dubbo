@@ -14,28 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.dubbo.remoting.http3.netty4.command;
+package org.apache.dubbo.remoting.http3.netty4;
 
-import org.apache.dubbo.remoting.http12.command.HttpChannelQueueCommand;
-import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
+import org.apache.dubbo.remoting.http12.RequestMetadata;
+import org.apache.dubbo.remoting.http12.h2.Http2Headers;
 
-public class ResetQueueCommand extends HttpChannelQueueCommand {
+public interface Http3Header extends RequestMetadata, Http3StreamFrame {
 
-    private final long errorCode;
-
-    public ResetQueueCommand(long errorCode) {
-        this.errorCode = errorCode;
+    @Override
+    default String method() {
+        return headers().getFirst(Http2Headers.METHOD.getName());
     }
 
     @Override
-    public void run() {
-        ((H2StreamChannel) getHttpChannel()).writeResetFrame(errorCode)
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        completeExceptionally(throwable);
-                    } else {
-                        complete(unused);
-                    }
-                });
+    default String path() {
+        return headers().getFirst(Http2Headers.PATH.getName());
+    }
+
+    default String status() {
+        return headers().getFirst(Http2Headers.STATUS.getName());
+    }
+
+    @Override
+    default String name() {
+        return "HEADER";
     }
 }

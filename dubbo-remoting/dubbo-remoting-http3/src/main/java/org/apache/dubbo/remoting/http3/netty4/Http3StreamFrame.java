@@ -14,28 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.dubbo.remoting.http3.netty4.command;
+package org.apache.dubbo.remoting.http3.netty4;
 
-import org.apache.dubbo.remoting.http12.command.HttpChannelQueueCommand;
-import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
+public interface Http3StreamFrame {
 
-public class ResetQueueCommand extends HttpChannelQueueCommand {
+    int id();
 
-    private final long errorCode;
+    String name();
 
-    public ResetQueueCommand(long errorCode) {
-        this.errorCode = errorCode;
-    }
-
-    @Override
-    public void run() {
-        ((H2StreamChannel) getHttpChannel()).writeResetFrame(errorCode)
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        completeExceptionally(throwable);
-                    } else {
-                        complete(unused);
-                    }
-                });
-    }
+    boolean isEndStream();
 }

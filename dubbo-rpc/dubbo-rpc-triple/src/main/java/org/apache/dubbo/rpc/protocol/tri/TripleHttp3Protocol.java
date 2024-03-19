@@ -7,11 +7,11 @@ import org.apache.dubbo.remoting.api.pu.ChannelHandlerPretender;
 import org.apache.dubbo.remoting.api.pu.ChannelOperator;
 import org.apache.dubbo.remoting.api.ssl.ContextOperator;
 import org.apache.dubbo.remoting.http12.netty4.HttpWriteQueueHandler;
-import org.apache.dubbo.remoting.http12.netty4.h2.NettyHttp2ProtocolSelectorHandler;
 import org.apache.dubbo.remoting.http3.netty4.NettyHttp3FrameCodec;
+import org.apache.dubbo.remoting.http3.netty4.NettyHttp3ProtocolSelectorHandler;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 import org.apache.dubbo.rpc.model.ScopeModelAware;
-import org.apache.dubbo.rpc.protocol.tri.h12.http2.GenericHttp2ServerTransportListenerFactory;
+import org.apache.dubbo.rpc.protocol.tri.h12.http3.GenericHttp3ServerTransportListenerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,6 @@ import io.netty.incubator.codec.quic.InsecureQuicTokenHandler;
 import io.netty.incubator.codec.quic.QuicSslContext;
 import io.netty.incubator.codec.quic.QuicSslContextBuilder;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
-
 
 public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeModelAware {
 
@@ -79,8 +78,8 @@ public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeMo
                             ch.pipeline()
                                     .addLast(new HttpWriteQueueHandler());
                             ch.pipeline()
-                                    .addLast(new NettyHttp2ProtocolSelectorHandler(url, frameworkModel,
-                                            GenericHttp2ServerTransportListenerFactory.INSTANCE));
+                                    .addLast(new NettyHttp3ProtocolSelectorHandler(url, frameworkModel,
+                                            GenericHttp3ServerTransportListenerFactory.INSTANCE));
                         }
                     }))
                     .build();

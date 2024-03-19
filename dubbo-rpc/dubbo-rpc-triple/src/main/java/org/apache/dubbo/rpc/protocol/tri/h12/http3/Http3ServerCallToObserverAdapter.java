@@ -16,9 +16,7 @@
  */
 package org.apache.dubbo.rpc.protocol.tri.h12.http3;
 
-import io.netty.incubator.codec.quic.QuicStreamChannel;
-
-import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
+import org.apache.dubbo.remoting.http3.netty4.Http3StreamChannel;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 import org.apache.dubbo.rpc.protocol.tri.TripleHeaderEnum;
 import org.apache.dubbo.rpc.protocol.tri.h12.ServerCallToObserverAdapter;
@@ -28,8 +26,8 @@ public class Http3ServerCallToObserverAdapter extends Http3ServerStreamObserver
 
     private int exceptionCode;
 
-    public Http3ServerCallToObserverAdapter(FrameworkModel frameworkModel, QuicStreamChannel quicStreamChannel) {
-        super(frameworkModel, quicStreamChannel);
+    public Http3ServerCallToObserverAdapter(FrameworkModel frameworkModel, Http3StreamChannel http3StreamChannel) {
+        super(frameworkModel, http3StreamChannel);
         setHeadersCustomizer(headers -> {
             if (exceptionCode != 0) {
                 headers.set(TripleHeaderEnum.TRI_EXCEPTION_CODE.getHeader(), String.valueOf(exceptionCode));

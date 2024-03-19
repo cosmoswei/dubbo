@@ -16,18 +16,22 @@
  */
 package org.apache.dubbo.remoting.http3.netty4;
 
-import io.netty.incubator.codec.quic.QuicStreamChannel;
-
-import org.apache.dubbo.remoting.http12.*;
+import org.apache.dubbo.remoting.http12.AbstractServerHttpChannelObserver;
+import org.apache.dubbo.remoting.http12.ErrorCodeHolder;
+import org.apache.dubbo.remoting.http12.FlowControlStreamObserver;
+import org.apache.dubbo.remoting.http12.HttpChannel;
+import org.apache.dubbo.remoting.http12.HttpChannelObserver;
+import org.apache.dubbo.remoting.http12.HttpHeaderNames;
+import org.apache.dubbo.remoting.http12.HttpHeaders;
+import org.apache.dubbo.remoting.http12.HttpMetadata;
 import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
-import org.apache.dubbo.remoting.http12.h2.Http2CancelableStreamObserver;
 import org.apache.dubbo.remoting.http12.h2.Http2MetadataFrame;
 import org.apache.dubbo.remoting.http12.message.StreamingDecoder;
 import org.apache.dubbo.rpc.CancellationContext;
 
 public class Http3ServerChannelObserver extends AbstractServerHttpChannelObserver
         implements HttpChannelObserver<Object>,
-                FlowControlStreamObserver<Object>,
+        FlowControlStreamObserver<Object>,
         Http3CancelableStreamObserver<Object> {
 
     private CancellationContext cancellationContext;
@@ -36,8 +40,8 @@ public class Http3ServerChannelObserver extends AbstractServerHttpChannelObserve
 
     private boolean autoRequestN = true;
 
-    public Http3ServerChannelObserver(QuicStreamChannel quicStreamChannel) {
-        super((HttpChannel) quicStreamChannel);
+    public Http3ServerChannelObserver(Http3StreamChannel http3StreamChannel) {
+        super((HttpChannel) http3StreamChannel);
     }
 
     public void setStreamingDecoder(StreamingDecoder streamingDecoder) {

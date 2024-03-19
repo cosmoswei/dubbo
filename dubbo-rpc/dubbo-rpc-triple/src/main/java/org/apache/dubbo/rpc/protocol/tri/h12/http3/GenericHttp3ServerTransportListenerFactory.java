@@ -16,13 +16,9 @@
  */
 package org.apache.dubbo.rpc.protocol.tri.h12.http3;
 
-import io.netty.incubator.codec.quic.QuicStreamChannel;
-
 import org.apache.dubbo.common.URL;
-import org.apache.dubbo.remoting.http12.h2.H2StreamChannel;
-import org.apache.dubbo.remoting.http12.h2.Http2ServerTransportListenerFactory;
-import org.apache.dubbo.remoting.http12.h2.Http2TransportListener;
 import org.apache.dubbo.remoting.http3.netty4.Http3ServerTransportListenerFactory;
+import org.apache.dubbo.remoting.http3.netty4.Http3StreamChannel;
 import org.apache.dubbo.remoting.http3.netty4.Http3TransportListener;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 
@@ -31,8 +27,9 @@ public class GenericHttp3ServerTransportListenerFactory implements Http3ServerTr
     public static final Http3ServerTransportListenerFactory INSTANCE = new GenericHttp3ServerTransportListenerFactory();
 
     @Override
-    public Http3TransportListener newInstance(QuicStreamChannel streamChannel, URL url, FrameworkModel frameworkModel) {
-        return new GenericHttp3ServerTransportListener(streamChannel, url, frameworkModel);
+    public Http3TransportListener newInstance(
+            Http3StreamChannel http3StreamChannel, URL url, FrameworkModel frameworkModel) {
+        return new GenericHttp3ServerTransportListener(http3StreamChannel, url, frameworkModel);
     }
 
     @Override

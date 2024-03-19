@@ -18,40 +18,56 @@ package org.apache.dubbo.remoting.http3.netty4.command;
 
 import org.apache.dubbo.remoting.http12.HttpMetadata;
 import org.apache.dubbo.remoting.http12.HttpOutputMessage;
-import org.apache.dubbo.remoting.http12.command.DataQueueCommand;
-import org.apache.dubbo.remoting.http12.command.HeaderQueueCommand;
-import org.apache.dubbo.remoting.http12.command.HttpWriteQueue;
+import org.apache.dubbo.remoting.http3.netty4.Http3OutputMessage;
 import org.apache.dubbo.remoting.http3.netty4.Http3StreamChannel;
 
+import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 
-public class Http3WriteQueueChannel extends Http3ChannelDelegate {
+public class Http3ChannelDelegate implements Http3StreamChannel {
 
-    private final HttpWriteQueue httpWriteQueue;
+    private final Http3StreamChannel http3StreamChannel;
 
-    public Http3WriteQueueChannel(Http3StreamChannel http3WriteQueueChannel, HttpWriteQueue httpWriteQueue) {
-        super(http3WriteQueueChannel);
-        this.httpWriteQueue = httpWriteQueue;
+    public Http3ChannelDelegate(Http3StreamChannel http3StreamChannel) {
+        this.http3StreamChannel = http3StreamChannel;
+    }
+
+    public Http3StreamChannel getHttp3StreamChannel() {
+        return http3StreamChannel;
     }
 
     @Override
     public CompletableFuture<Void> writeHeader(HttpMetadata httpMetadata) {
-        HeaderQueueCommand cmd = new HeaderQueueCommand(httpMetadata);
-        cmd.setHttpChannel(this::getHttp3StreamChannel);
-        return httpWriteQueue.enqueue(cmd);
+        return http3StreamChannel.writeHeader(httpMetadata);
     }
 
     @Override
     public CompletableFuture<Void> writeMessage(HttpOutputMessage httpOutputMessage) {
-        DataQueueCommand cmd = new DataQueueCommand(httpOutputMessage);
-        cmd.setHttpChannel(this::getHttp3StreamChannel);
-        return httpWriteQueue.enqueue(cmd);
+        return http3StreamChannel.writeMessage(httpOutputMessage);
+    }
+
+    @Override
+    public SocketAddress remoteAddress() {
+        return http3StreamChannel.remoteAddress();
+    }
+
+    @Override
+    public SocketAddress localAddress() {
+        return http3StreamChannel.localAddress();
+    }
+
+    @Override
+    public void flush() {
+        http3StreamChannel.flush();
     }
 
     @Override
     public CompletableFuture<Void> writeResetFrame(long errorCode) {
-        ResetQueueCommand cmd = new ResetQueueCommand(errorCode);
-        cmd.setHttpChannel(this::getHttp3StreamChannel);
-        return this.httpWriteQueue.enqueue(cmd);
+        return http3StreamChannel.writeResetFrame(errorCode);
+    }
+
+    @Override
+    public Http3OutputMessage newOutputMessage(boolean endStream) {
+        return http3StreamChannel.newOutputMessage(endStream);
     }
 }

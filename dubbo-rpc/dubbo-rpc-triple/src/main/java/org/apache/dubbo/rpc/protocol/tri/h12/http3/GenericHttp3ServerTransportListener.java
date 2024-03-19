@@ -18,33 +18,46 @@ package org.apache.dubbo.rpc.protocol.tri.h12.http3;
 
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.threadpool.manager.ExecutorRepository;
-import org.apache.dubbo.remoting.http12.HttpChannel;
+import org.apache.dubbo.common.threadpool.serial.SerializingExecutor;
+import org.apache.dubbo.remoting.http12.HttpMethods;
 import org.apache.dubbo.remoting.http12.exception.HttpStatusException;
-import org.apache.dubbo.remoting.http12.h2.Http2InputMessage;
-import org.apache.dubbo.remoting.http12.h2.Http2InputMessageFrame;
+import org.apache.dubbo.remoting.http12.message.DefaultListeningDecoder;
 import org.apache.dubbo.remoting.http12.message.ListeningDecoder;
+import org.apache.dubbo.remoting.http12.message.MethodMetadata;
 import org.apache.dubbo.remoting.http12.message.NoOpStreamingDecoder;
 import org.apache.dubbo.remoting.http12.message.StreamingDecoder;
 import org.apache.dubbo.remoting.http12.message.codec.JsonCodec;
+import org.apache.dubbo.remoting.http3.netty4.Http3Header;
+import org.apache.dubbo.remoting.http3.netty4.Http3InputMessage;
+import org.apache.dubbo.remoting.http3.netty4.Http3InputMessageFrame;
 import org.apache.dubbo.remoting.http3.netty4.Http3ServerChannelObserver;
+import org.apache.dubbo.remoting.http3.netty4.Http3StreamChannel;
 import org.apache.dubbo.remoting.http3.netty4.Http3TransportListener;
+import org.apache.dubbo.rpc.CancellationContext;
+import org.apache.dubbo.rpc.Invoker;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcInvocation;
 import org.apache.dubbo.rpc.executor.ExecutorSupport;
 import org.apache.dubbo.rpc.model.FrameworkModel;
+import org.apache.dubbo.rpc.model.MethodDescriptor;
+import org.apache.dubbo.rpc.protocol.tri.ReflectionPackableMethod;
+import org.apache.dubbo.rpc.protocol.tri.RpcInvocationBuildContext;
+import org.apache.dubbo.rpc.protocol.tri.h12.AbstractServerTransportListener;
+import org.apache.dubbo.rpc.protocol.tri.h12.BiStreamServerCallListener;
 import org.apache.dubbo.rpc.protocol.tri.h12.HttpMessageListener;
 import org.apache.dubbo.rpc.protocol.tri.h12.ServerCallListener;
+import org.apache.dubbo.rpc.protocol.tri.h12.ServerStreamServerCallListener;
+import org.apache.dubbo.rpc.protocol.tri.h12.UnaryServerCallListener;
+import org.apache.dubbo.rpc.protocol.tri.h12.grpc.StreamingHttpMessageListener;
 
 import java.io.ByteArrayInputStream;
+import java.util.concurrent.Executor;
 
-import io.netty.incubator.codec.http3.Http3DataFrame;
-import io.netty.incubator.codec.http3.Http3HeadersFrame;
-import io.netty.incubator.codec.quic.QuicStreamChannel;
-
-public class GenericHttp3ServerTransportListener
-        extends Http3AbstractServerTransportListener<Http3HeadersFrame, Http3DataFrame>
+public class GenericHttp3ServerTransportListener extends AbstractServerTransportListener<Http3Header, Http3InputMessage>
         implements Http3TransportListener {
 
-    private static final Http2InputMessage EMPTY_MESSAGE =
-            new Http2InputMessageFrame(new ByteArrayInputStream(new byte[0]), true);
+    private static final Http3InputMessage EMPTY_MESSAGE =
+            new Http3InputMessageFrame(new ByteArrayInputStream(new byte[0]), true);
 
     private final ExecutorSupport executorSupport;
     private final StreamingDecoder streamingDecoder;
@@ -53,12 +66,12 @@ public class GenericHttp3ServerTransportListener
     private ServerCallListener serverCallListener;
 
     public GenericHttp3ServerTransportListener(
-            QuicStreamChannel quicStreamChannel, URL url, FrameworkModel frameworkModel) {
-        super(frameworkModel, url, (HttpChannel) quicStreamChannel);
+            Http3StreamChannel http3StreamChannel, URL url, FrameworkModel frameworkModel) {
+        super(frameworkModel, url, http3StreamChannel);
         executorSupport = ExecutorRepository.getInstance(url.getOrDefaultApplicationModel())
                 .getExecutorSupport(url);
         streamingDecoder = newStreamingDecoder();
-        serverChannelObserver = new Http3ServerCallToObserverAdapter(frameworkModel, quicStreamChannel);
+        serverChannelObserver = new Http3ServerCallToObserverAdapter(frameworkModel, http3StreamChannel);
         serverChannelObserver.setResponseEncoder(JsonCodec.INSTANCE);
         serverChannelObserver.setStreamingDecoder(streamingDecoder);
     }
@@ -69,27 +82,93 @@ public class GenericHttp3ServerTransportListener
     }
 
     @Override
+    protected Executor initializeExecutor(Http3Header metadata) {
+        return new SerializingExecutor(executorSupport.getExecutor(metadata));
+    }
+
+    @Override
     public void cancelByRemote(long errorCode) {
         serverChannelObserver.cancel(new HttpStatusException((int) errorCode));
         serverCallListener.onCancel(errorCode);
     }
 
-    protected StreamingDecoder getStreamingDecoder() {
-        return streamingDecoder;
+    protected void doOnMetadata(Http3Header metadata) {
+        if (metadata.isEndStream()) {
+            if (!HttpMethods.supportBody(metadata.method())) {
+                super.doOnMetadata(metadata);
+                doOnData(EMPTY_MESSAGE);
+            }
+            return;
+        }
+        super.doOnMetadata(metadata);
+    }
+
+    @Override
+    protected void onDataCompletion(Http3InputMessage message) {
+        if (message.isEndStream()) {
+            serverCallListener.onComplete();
+        }
+    }
+
+    @Override
+    protected HttpMessageListener buildHttpMessageListener() {
+        RpcInvocationBuildContext context = getContext();
+        RpcInvocation rpcInvocation = buildRpcInvocation(context);
+
+        serverCallListener = startListener(rpcInvocation, context.getMethodDescriptor(), context.getInvoker());
+
+        DefaultListeningDecoder listeningDecoder = new DefaultListeningDecoder(context.getHttpMessageDecoder(),
+                context.getMethodMetadata()
+                .getActualRequestTypes());
+        listeningDecoder.setListener(new Http3StreamingDecodeListener(serverCallListener));
+        streamingDecoder.setFragmentListener(new StreamingDecoder.DefaultFragmentListener(listeningDecoder));
+        getServerChannelObserver().setStreamingDecoder(streamingDecoder);
+        return new StreamingHttpMessageListener(streamingDecoder);
+    }
+
+    private ServerCallListener startListener(
+            RpcInvocation invocation, MethodDescriptor methodDescriptor, Invoker<?> invoker) {
+        Http3ServerChannelObserver responseObserver = getServerChannelObserver();
+        CancellationContext cancellationContext = RpcContext.getCancellationContext();
+        responseObserver.setCancellationContext(cancellationContext);
+        switch (methodDescriptor.getRpcType()) {
+            case UNARY:
+                boolean applyCustomizeException = false;
+                if (!getContext().isHasStub()) {
+                    MethodMetadata methodMetadata = getContext().getMethodMetadata();
+                    applyCustomizeException = ReflectionPackableMethod.needWrap(methodDescriptor,
+                            methodMetadata.getActualRequestTypes(), methodMetadata.getActualResponseType());
+                }
+                UnaryServerCallListener unaryServerCallListener = startUnary(invocation, invoker, responseObserver);
+                unaryServerCallListener.setApplyCustomizeException(applyCustomizeException);
+                return unaryServerCallListener;
+            case SERVER_STREAM:
+                return startServerStreaming(invocation, invoker, responseObserver);
+            case BI_STREAM:
+            case CLIENT_STREAM:
+                return startBiStreaming(invocation, invoker, responseObserver);
+            default:
+                throw new IllegalStateException("Can not reach here");
+        }
+    }
+
+    private UnaryServerCallListener startUnary(
+            RpcInvocation invocation, Invoker<?> invoker, Http3ServerChannelObserver responseObserver) {
+        return new UnaryServerCallListener(invocation, invoker, responseObserver);
+    }
+
+    private ServerStreamServerCallListener startServerStreaming(
+            RpcInvocation invocation, Invoker<?> invoker, Http3ServerChannelObserver responseObserver) {
+        return new ServerStreamServerCallListener(invocation, invoker, responseObserver);
+    }
+
+    private BiStreamServerCallListener startBiStreaming(
+            RpcInvocation invocation, Invoker<?> invoker, Http3ServerChannelObserver responseObserver) {
+        return new BiStreamServerCallListener(invocation, invoker, responseObserver);
     }
 
     protected final Http3ServerChannelObserver getServerChannelObserver() {
         return serverChannelObserver;
-    }
-
-    @Override
-    public void onMetadata(Http3HeadersFrame metadata) {
-
-    }
-
-    @Override
-    public void onData(Http3DataFrame http3DataFrame) {
-
     }
 
     private static class Http3StreamingDecodeListener implements ListeningDecoder.Listener {

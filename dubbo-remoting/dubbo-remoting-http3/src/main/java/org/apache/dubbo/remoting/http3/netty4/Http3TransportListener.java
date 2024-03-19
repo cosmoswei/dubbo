@@ -16,9 +16,6 @@
  */
 package org.apache.dubbo.remoting.http3.netty4;
 
+import org.apache.dubbo.remoting.http12.h2.CancelableTransportListener;
 
-import io.netty.incubator.codec.http3.Http3DataFrame;
-import io.netty.incubator.codec.http3.Http3HeadersFrame;
-
-
-public interface Http3TransportListener extends CancelableTransportListener<Http3HeadersFrame,Http3DataFrame>{}
+public interface Http3TransportListener extends CancelableTransportListener<Http3Header, Http3InputMessage> {}

@@ -16,15 +16,42 @@
  */
 package org.apache.dubbo.remoting.http3.netty4;
 
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.common.extension.ExtensionScope;
-import org.apache.dubbo.common.extension.SPI;
-import org.apache.dubbo.rpc.model.FrameworkModel;
+import org.apache.dubbo.remoting.http12.HttpHeaders;
 
-@SPI(scope = ExtensionScope.FRAMEWORK)
-public interface Http3ServerTransportListenerFactory {
+public class Http3MetadataFrame implements Http3Header {
 
-    Http3TransportListener newInstance(Http3StreamChannel http3StreamChannel, URL url, FrameworkModel frameworkModel);
+    private final int streamId;
 
-    boolean supportContentType(String contentType);
+    private final HttpHeaders headers;
+
+    private final boolean endStream;
+
+    public Http3MetadataFrame(HttpHeaders headers) {
+        this(headers, false);
+    }
+
+    public Http3MetadataFrame(HttpHeaders headers, boolean endStream) {
+        this(-1, headers, endStream);
+    }
+
+    public Http3MetadataFrame(int streamId, HttpHeaders headers, boolean endStream) {
+        this.streamId = streamId;
+        this.headers = headers;
+        this.endStream = endStream;
+    }
+
+    @Override
+    public HttpHeaders headers() {
+        return headers;
+    }
+
+    @Override
+    public int id() {
+        return streamId;
+    }
+
+    @Override
+    public boolean isEndStream() {
+        return endStream;
+    }
 }
