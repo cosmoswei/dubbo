@@ -20,6 +20,7 @@ import org.apache.dubbo.remoting.http12.HttpMetadata;
 import org.apache.dubbo.remoting.http12.HttpOutputMessage;
 import org.apache.dubbo.remoting.http12.netty4.NettyHttpChannelFutureListener;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
 
@@ -28,6 +29,7 @@ import io.netty.buffer.ByteBufOutputStream;
 import io.netty.handler.codec.http2.DefaultHttp2ResetFrame;
 import io.netty.incubator.codec.http3.DefaultHttp3DataFrame;
 import io.netty.incubator.codec.http3.DefaultHttp3HeadersFrame;
+import io.netty.incubator.codec.quic.QuicStreamAddress;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 
 public class NettyHttp3StreamChannel implements Http3StreamChannel {
@@ -73,7 +75,9 @@ public class NettyHttp3StreamChannel implements Http3StreamChannel {
     @Override
     public SocketAddress remoteAddress() {
         // TODO return the actual remote address
-        return this.quicStreamChannel.remoteAddress();
+        QuicStreamAddress quicStreamAddress = this.quicStreamChannel.remoteAddress();
+        InetSocketAddress inetSocketAddress = new InetSocketAddress(1001);
+        return inetSocketAddress;
     }
 
     @Override

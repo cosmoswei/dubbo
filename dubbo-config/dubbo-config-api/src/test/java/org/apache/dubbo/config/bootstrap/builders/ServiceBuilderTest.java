@@ -16,11 +16,20 @@
  */
 package org.apache.dubbo.config.bootstrap.builders;
 
+import org.apache.dubbo.common.constants.CommonConstants;
+import org.apache.dubbo.config.ApplicationConfig;
 import org.apache.dubbo.config.MethodConfig;
+import org.apache.dubbo.config.ProtocolConfig;
 import org.apache.dubbo.config.ProviderConfig;
+import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.config.ServiceConfig;
 
 import java.util.Collections;
+
+import org.apache.dubbo.config.bootstrap.DubboBootstrap;
+import org.apache.dubbo.config.utils.service.FooService;
+
+import org.apache.dubbo.config.utils.service.FooServiceImpl;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -131,4 +140,24 @@ class ServiceBuilderTest {
         Assertions.assertEquals(1, config.getMethods().size());
         Assertions.assertNotSame(config, config2);
     }
+
+
+        @Test
+        public void Mock() throws Exception {
+            ServiceConfig<FooService> serviceServiceConfig = new ServiceConfig<>();
+            serviceServiceConfig.setInterface(FooService.class);
+            serviceServiceConfig.setRef(new FooServiceImpl());
+            serviceServiceConfig.setTimeout(10000000);
+
+            DubboBootstrap bootstrap = DubboBootstrap.getInstance();
+            ProtocolConfig protocolConfig = new ProtocolConfig(CommonConstants.TRIPLE,8090);
+            protocolConfig.setHost("0.0.0.0");
+            protocolConfig.setQuicEnabled(true);
+            bootstrap.application(new ApplicationConfig("dubbo-demo-triple-api-provider"))
+                    .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
+                    .protocol(protocolConfig)
+                    .service(serviceServiceConfig)
+                    .start().await();
+
+        }
 }

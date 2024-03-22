@@ -77,6 +77,7 @@ dubbo-registry-zookeeper
 dubbo-remoting
 dubbo-remoting-api
 dubbo-remoting-http
+dubbo-remoting-http3
 dubbo-remoting-http12
 dubbo-remoting-netty
 dubbo-remoting-netty4
