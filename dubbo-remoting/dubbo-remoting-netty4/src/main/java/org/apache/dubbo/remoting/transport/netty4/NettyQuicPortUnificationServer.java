@@ -99,7 +99,8 @@ public class NettyQuicPortUnificationServer extends AbstractPortUnificationServe
 
         eventLoopGroup = new NioEventLoopGroup(1);
 
-        bootstrap.group(eventLoopGroup).channel(NioDatagramChannel.class);
+        bootstrap.group(eventLoopGroup)
+                .channel(NioDatagramChannel.class);
 
         bootstrap.handler(new ChannelInitializer<DatagramChannel>() {
             @Override
@@ -146,7 +147,7 @@ public class NettyQuicPortUnificationServer extends AbstractPortUnificationServe
 
     @Override
     protected void doClose() throws Throwable {
-
+        closeBootstrap();
     }
 
     @Override

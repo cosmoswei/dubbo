@@ -102,7 +102,6 @@ public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeMo
 
             List<org.apache.dubbo.remoting.ChannelHandler> handlers = new ArrayList<>();
             handlers.add(new ChannelHandlerPretender(codec));
-
             operator.configChannelHandler(handlers);
         } catch (Exception e) {
             throw new IllegalStateException(e);

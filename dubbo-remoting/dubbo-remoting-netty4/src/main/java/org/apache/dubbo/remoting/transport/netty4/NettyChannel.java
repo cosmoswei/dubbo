@@ -34,6 +34,7 @@ import org.apache.dubbo.remoting.utils.PayloadDropper;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -44,6 +45,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.EncoderException;
+import io.netty.incubator.codec.quic.QuicStreamAddress;
 
 import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_ENCODE_IN_IO_THREAD;
 import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_TIMEOUT;
@@ -61,8 +63,8 @@ final class NettyChannel extends AbstractChannel {
     /**
      * the cache for netty channel and dubbo channel
      */
-    private static final ConcurrentMap<Channel, NettyChannel> CHANNEL_MAP =
-            new ConcurrentHashMap<Channel, NettyChannel>();
+    private static final ConcurrentMap<Channel, NettyChannel> CHANNEL_MAP = new ConcurrentHashMap<Channel,
+            NettyChannel>();
     /**
      * netty channel
      */
@@ -79,8 +81,8 @@ final class NettyChannel extends AbstractChannel {
     private final boolean encodeInIOThread;
 
     /**
-     * The constructor of NettyChannel.
-     * It is private so NettyChannel usually create by {@link NettyChannel#getOrAddChannel(Channel, URL, ChannelHandler)}
+     * The constructor of NettyChannel. It is private so NettyChannel usually create by
+     * {@link NettyChannel#getOrAddChannel(Channel, URL, ChannelHandler)}
      *
      * @param channel netty channel
      * @param url
@@ -98,8 +100,8 @@ final class NettyChannel extends AbstractChannel {
     }
 
     /**
-     * Get dubbo channel by netty channel through channel cache.
-     * Put netty channel into it if dubbo channel don't exist in the cache.
+     * Get dubbo channel by netty channel through channel cache. Put netty channel into it if dubbo channel don't exist
+     * in the cache.
      *
      * @param ch      netty channel
      * @param url
@@ -151,12 +153,26 @@ final class NettyChannel extends AbstractChannel {
 
     @Override
     public InetSocketAddress getLocalAddress() {
-        return (InetSocketAddress) channel.localAddress();
+        SocketAddress socketAddress = channel.localAddress();
+        if (socketAddress instanceof QuicStreamAddress) {
+            QuicStreamAddress streamAddress = (QuicStreamAddress) socketAddress;
+            long streamId = streamAddress.streamId();
+            return new InetSocketAddress((int) streamId);
+        } else {
+            return (InetSocketAddress) socketAddress;
+        }
     }
 
     @Override
     public InetSocketAddress getRemoteAddress() {
-        return (InetSocketAddress) channel.remoteAddress();
+        SocketAddress socketAddress = channel.remoteAddress();
+        if (socketAddress instanceof QuicStreamAddress) {
+            QuicStreamAddress streamAddress = (QuicStreamAddress) socketAddress;
+            long streamId = streamAddress.streamId();
+            return new InetSocketAddress((int) streamId);
+        } else {
+            return (InetSocketAddress) socketAddress;
+        }
     }
 
     @Override
@@ -177,7 +193,8 @@ final class NettyChannel extends AbstractChannel {
      *
      * @param message message that need send.
      * @param sent    whether to ack async-sent
-     * @throws RemotingException throw RemotingException if wait until timeout or any exception thrown by method body that surrounded by try-catch.
+     * @throws RemotingException throw RemotingException if wait until timeout or any exception thrown by method body
+     *                           that surrounded by try-catch.
      */
     @Override
     public void send(Object message, boolean sent) throws RemotingException {
@@ -189,30 +206,32 @@ final class NettyChannel extends AbstractChannel {
         try {
             Object outputMessage = message;
             if (!encodeInIOThread) {
-                ByteBuf buf = channel.alloc().buffer();
+                ByteBuf buf = channel.alloc()
+                        .buffer();
                 ChannelBuffer buffer = new NettyBackedChannelBuffer(buf);
                 codec.encode(this, buffer, message);
                 outputMessage = buf;
             }
-            ChannelFuture future = writeQueue.enqueue(outputMessage).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (!(message instanceof Request)) {
-                        return;
-                    }
-                    ChannelHandler handler = getChannelHandler();
-                    if (future.isSuccess()) {
-                        handler.sent(NettyChannel.this, message);
-                    } else {
-                        Throwable t = future.cause();
-                        if (t == null) {
-                            return;
+            ChannelFuture future = writeQueue.enqueue(outputMessage)
+                    .addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            if (!(message instanceof Request)) {
+                                return;
+                            }
+                            ChannelHandler handler = getChannelHandler();
+                            if (future.isSuccess()) {
+                                handler.sent(NettyChannel.this, message);
+                            } else {
+                                Throwable t = future.cause();
+                                if (t == null) {
+                                    return;
+                                }
+                                Response response = buildErrorResponse((Request) message, t);
+                                handler.received(NettyChannel.this, response);
+                            }
                         }
-                        Response response = buildErrorResponse((Request) message, t);
-                        handler.received(NettyChannel.this, response);
-                    }
-                }
-            });
+                    });
 
             if (sent) {
                 // wait timeout ms
@@ -225,15 +244,12 @@ final class NettyChannel extends AbstractChannel {
             }
         } catch (Throwable e) {
             removeChannelIfDisconnected(channel);
-            throw new RemotingException(
-                    this,
+            throw new RemotingException(this,
                     "Failed to send message " + PayloadDropper.getRequestWithoutData(message) + " to "
-                            + getRemoteAddress() + ", cause: " + e.getMessage(),
-                    e);
+                            + getRemoteAddress() + ", cause: " + e.getMessage(), e);
         }
         if (!success) {
-            throw new RemotingException(
-                    this,
+            throw new RemotingException(this,
                     "Failed to send message " + PayloadDropper.getRequestWithoutData(message) + " to "
                             + getRemoteAddress() + "in timeout(" + timeout + "ms) limit");
         }
@@ -367,13 +383,17 @@ final class NettyChannel extends AbstractChannel {
             codecName = url.getProtocol();
         }
         FrameworkModel frameworkModel = getFrameworkModel(url.getScopeModel());
-        if (frameworkModel.getExtensionLoader(Codec2.class).hasExtension(codecName)) {
-            return frameworkModel.getExtensionLoader(Codec2.class).getExtension(codecName);
-        } else if (frameworkModel.getExtensionLoader(Codec.class).hasExtension(codecName)) {
-            return new CodecAdapter(
-                    frameworkModel.getExtensionLoader(Codec.class).getExtension(codecName));
+        if (frameworkModel.getExtensionLoader(Codec2.class)
+                .hasExtension(codecName)) {
+            return frameworkModel.getExtensionLoader(Codec2.class)
+                    .getExtension(codecName);
+        } else if (frameworkModel.getExtensionLoader(Codec.class)
+                .hasExtension(codecName)) {
+            return new CodecAdapter(frameworkModel.getExtensionLoader(Codec.class)
+                    .getExtension(codecName));
         } else {
-            return frameworkModel.getExtensionLoader(Codec2.class).getExtension("default");
+            return frameworkModel.getExtensionLoader(Codec2.class)
+                    .getExtension("default");
         }
     }
 

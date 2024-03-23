@@ -56,5 +56,11 @@
       <artifactId>log4j-slf4j-impl</artifactId>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>io.netty.incubator</groupId>
+          <artifactId>netty-incubator-codec-classes-quic</artifactId>
+          <version>0.0.57.Final</version>
+          <scope>compile</scope>
+      </dependency>
   </dependencies>
 </project>
