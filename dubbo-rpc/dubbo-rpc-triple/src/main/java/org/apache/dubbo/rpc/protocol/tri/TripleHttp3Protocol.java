@@ -27,6 +27,7 @@ import org.apache.dubbo.remoting.http3.netty4.NettyHttp3FrameCodec;
 import org.apache.dubbo.remoting.http3.netty4.NettyHttp3ProtocolSelectorHandler;
 import org.apache.dubbo.rpc.model.FrameworkModel;
 import org.apache.dubbo.rpc.model.ScopeModelAware;
+import org.apache.dubbo.rpc.protocol.tri.h12.TripleProtocolDetector;
 import org.apache.dubbo.rpc.protocol.tri.h12.http3.GenericHttp3ServerTransportListenerFactory;
 
 import java.util.ArrayList;
@@ -48,8 +49,8 @@ public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeMo
 
     private FrameworkModel frameworkModel;
 
-    public TripleHttp3Protocol(ProtocolDetector detector) {
-        super(detector);
+    public TripleHttp3Protocol() {
+        super(new TripleProtocolDetector());
     }
 
     @Override

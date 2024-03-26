@@ -19,9 +19,8 @@ public class DelegateTripleWireProtocol extends AbstractWireProtocol implements 
 
     public DelegateTripleWireProtocol() {
         super(new TripleProtocolDetector());
-
         tripleHttp2Protocol = new TripleHttp2Protocol();
-        tripleHttp3Protocol = new TripleHttp3Protocol(new TripleProtocolDetector());
+        tripleHttp3Protocol = new TripleHttp3Protocol();
     }
 
     @Override

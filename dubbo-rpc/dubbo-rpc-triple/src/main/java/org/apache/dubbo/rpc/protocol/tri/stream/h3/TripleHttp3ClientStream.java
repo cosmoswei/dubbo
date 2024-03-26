@@ -109,7 +109,7 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
         });
         // 这是写请求的队列工具数据结构
         QuicCreateStreamQueueCommand cmd = QuicCreateStreamQueueCommand.create(quicStreamChannelFuture,
-                http3StreamChannelFuture);
+                future);
         this.writeQueue.enqueue(cmd);
         return future;
     }

@@ -54,7 +54,12 @@ public class QuicCreateStreamQueueCommand extends QueuedCommand {
     @Override
     public void run(Channel channel) {
         // work in I/O thread
-        ChannelFuture channelFuture = channel.closeFuture();
+        Future<QuicStreamChannel> channelFuture = null;
+        try {
+            channelFuture = quicStreamChannelFuture.sync();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         if (channelFuture.isSuccess()) {
             http3StreamChannelFuture.complete(quicStreamChannelFuture.getNow());
         } else {
