@@ -37,23 +37,26 @@ public class Application {
         ReferenceConfig<DemoService> reference = new ReferenceConfig<>();
         reference.setInterface(DemoService.class);
         reference.setGeneric("true");
-
+        reference.setProtocol(CommonConstants.TRIPLE);
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
-        bootstrap
-                .application(new ApplicationConfig("dubbo-demo-api-consumer"))
+        ProtocolConfig protocolConfig = new ProtocolConfig(CommonConstants.TRIPLE, -1);
+        protocolConfig.setQuicEnabled(true);
+        bootstrap.application(new ApplicationConfig("dubbo-demo-api-consumer"))
                 .registry(new RegistryConfig(REGISTRY_URL))
-                .protocol(new ProtocolConfig(CommonConstants.DUBBO, -1))
+                .protocol(protocolConfig)
                 .reference(reference)
                 .start();
 
-        DemoService demoService = bootstrap.getCache().get(reference);
+        DemoService demoService = bootstrap.getCache()
+                .get(reference);
         String message = demoService.sayHello("dubbo");
         System.out.println(message);
 
         // generic invoke
         GenericService genericService = (GenericService) demoService;
-        Object genericInvokeResult = genericService.$invoke(
-                "sayHello", new String[] {String.class.getName()}, new Object[] {"dubbo generic invoke"});
+        Object genericInvokeResult = genericService.$invoke("sayHello", new String[] {String.class.getName()},
+                new Object[] {"dubbo generic invoke"});
+        System.out.println("98881231200");
         System.out.println(genericInvokeResult.toString());
     }
 }
