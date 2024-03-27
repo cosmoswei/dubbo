@@ -36,12 +36,12 @@ public class Application {
         ServiceConfig<DemoServiceImpl> service = new ServiceConfig<>();
         service.setInterface(DemoService.class);
         service.setRef(new DemoServiceImpl());
-        service.setProtocol(new ProtocolConfig(CommonConstants.TRIPLE, -1));
+        service.setProtocol(new ProtocolConfig(CommonConstants.TRIPLE, 50051));
         service.getProtocol().setQuicEnabled(true);
         DubboBootstrap bootstrap = DubboBootstrap.getInstance();
         bootstrap.application(new ApplicationConfig("dubbo-demo-api-provider"))
                 .registry(new RegistryConfig(REGISTRY_URL))
-                .protocol(new ProtocolConfig(CommonConstants.TRIPLE, -1))
+                .protocol(new ProtocolConfig(CommonConstants.TRIPLE, 50051))
                 .service(service)
                 .start()
                 .await();

@@ -35,9 +35,8 @@ public class NettyConnectionManager implements ConnectionManager {
         try {
             if (Boolean.parseBoolean(isQuicEnabled)) {
                 return new NettyQuicConnectionClient(url, handler);
-            } else {
-                return new NettyConnectionClient(url, handler);
             }
+            return new NettyConnectionClient(url, handler);
 
         } catch (RemotingException e) {
             throw new RuntimeException(e);
