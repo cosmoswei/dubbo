@@ -37,19 +37,6 @@ import io.netty.incubator.codec.http3.Http3HeadersFrame;
 public class NettyHttp3FrameCodec extends ChannelDuplexHandler {
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof Http3HeadersFrame) {
-            Http3Header http3Header = onHttp3HeadersFrame((Http3HeadersFrame) msg);
-            super.channelRead(ctx, http3Header);
-        } else if (msg instanceof Http3DataFrame) {
-            Http3InputMessage http2InputMessage = onHttp3DataFrame((Http3DataFrame) msg);
-            super.channelRead(ctx, http2InputMessage);
-        } else {
-            super.channelRead(ctx, msg);
-        }
-    }
-
-    @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (msg instanceof Http3HeadersFrame) {
             Http3HeadersFrame http3HeadersFrame = (Http3HeadersFrame) msg;

@@ -16,6 +16,11 @@
  */
 package org.apache.dubbo.rpc.protocol.tri;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.incubator.codec.http3.Http3DataFrame;
+import io.netty.incubator.codec.http3.Http3HeadersFrame;
+import io.netty.incubator.codec.http3.Http3RequestStreamInboundHandler;
+
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.remoting.api.AbstractWireProtocol;
 import org.apache.dubbo.remoting.api.ProtocolDetector;
@@ -97,6 +102,27 @@ public class TripleHttp3Protocol extends AbstractWireProtocol implements ScopeMo
                             ch.pipeline()
                                     .addLast(new NettyHttp3ProtocolSelectorHandler(url, frameworkModel,
                                             GenericHttp3ServerTransportListenerFactory.INSTANCE));
+//                            ch.pipeline()
+//                                    .addLast(new Http3RequestStreamInboundHandler() {
+//                                        @Override
+//                                        protected void channelRead(
+//                                                ChannelHandlerContext channelHandlerContext,
+//                                                Http3HeadersFrame http3HeadersFrame) throws Exception {
+//
+//                                        }
+//
+//                                        @Override
+//                                        protected void channelRead(
+//                                                ChannelHandlerContext channelHandlerContext,
+//                                                Http3DataFrame http3DataFrame) throws Exception {
+//
+//                                        }
+//
+//                                        @Override
+//                                        protected void channelInputClosed(ChannelHandlerContext channelHandlerContext) throws Exception {
+//
+//                                        }
+//                                    });
                         }
                     }))
                     .build();
