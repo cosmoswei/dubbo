@@ -1,5 +1,9 @@
 package org.apache.dubbo.rpc.protocol.tri.stream.h3;
 
+import io.netty.incubator.codec.http3.Http3DataFrame;
+import io.netty.incubator.codec.http3.Http3HeadersFrame;
+import io.netty.incubator.codec.http3.Http3RequestStreamInboundHandler;
+
 import org.apache.dubbo.common.constants.CommonConstants;
 import org.apache.dubbo.common.logger.ErrorTypeAwareLogger;
 import org.apache.dubbo.common.logger.LoggerFactory;
@@ -44,7 +48,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.incubator.codec.http3.Http3;
 import io.netty.incubator.codec.http3.Http3ErrorCode;
@@ -96,7 +99,27 @@ public class TripleHttp3ClientStream extends AbstractStream implements ClientStr
     private TripleHttp3StreamChannelFuture initTripleHttp3StreamChannelFuture() {
         TripleHttp3StreamChannelFuture future = new TripleHttp3StreamChannelFuture(parentChannel);
         Future<QuicStreamChannel> quicStreamChannelFuture;
-        quicStreamChannelFuture = Http3.newRequestStream(parentChannel, new ChannelInboundHandlerAdapter() {
+        quicStreamChannelFuture = Http3.newRequestStream(parentChannel, new Http3RequestStreamInboundHandler() {
+            @Override
+            protected void channelRead(
+                    ChannelHandlerContext channelHandlerContext,
+                    Http3HeadersFrame http3HeadersFrame) throws Exception {
+                // 客户端从这里拿返回结果头，写到writeQueue中去？
+            }
+
+            @Override
+            protected void channelRead(
+                    ChannelHandlerContext channelHandlerContext,
+                    Http3DataFrame http3DataFrame) throws Exception {
+                // 客户端从这里拿返回结果Body
+                // 也可以交给其他handler
+            }
+
+            @Override
+            protected void channelInputClosed(ChannelHandlerContext channelHandlerContext) throws Exception {
+
+            }
+
             @Override
             public void handlerAdded(ChannelHandlerContext ctx) {
                 Channel channel = ctx.channel();

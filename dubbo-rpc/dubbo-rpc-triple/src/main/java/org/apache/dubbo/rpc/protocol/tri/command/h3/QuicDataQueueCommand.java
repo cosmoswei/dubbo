@@ -17,9 +17,12 @@
 package org.apache.dubbo.rpc.protocol.tri.command.h3;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.DefaultHttp2DataFrame;
+
+import io.netty.incubator.codec.http3.DefaultHttp3DataFrame;
 
 import org.apache.dubbo.rpc.protocol.tri.stream.h3.TripleHttp3StreamChannelFuture;
 
@@ -47,13 +50,14 @@ public class QuicDataQueueCommand extends QuicStreamQueueCommand {
     @Override
     public void doSend(ChannelHandlerContext ctx, ChannelPromise promise) {
         if (data == null) {
-            ctx.write(new DefaultHttp2DataFrame(endStream), promise);
+            ctx.write(new DefaultHttp3DataFrame(Unpooled.buffer()), promise);
         } else {
+            // 要在这里同时封装头，跟Body
             ByteBuf buf = ctx.alloc().buffer();
             buf.writeByte(compressFlag);
             buf.writeInt(data.length);
             buf.writeBytes(data);
-            ctx.write(new DefaultHttp2DataFrame(buf, endStream), promise);
+            ctx.write(new DefaultHttp3DataFrame(buf), promise);
         }
     }
 
